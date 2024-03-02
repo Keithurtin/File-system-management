@@ -5,8 +5,8 @@ def main():
     drive = "\\\\.\\" 
     letter = input("Partition letter: ")
     drive = drive + letter + ":"
-    system = input("File system: ")
-    if (system == "FAT32"):
+    file_system = input("Type of File System: ")
+    if (file_system == "FAT32"):
         read_FAT32(drive)
     else:
         print("File system must be FAT32 or NTFS")
