@@ -1,4 +1,3 @@
-import os
 import sys
 
 path = "\\\\.\\D:"
@@ -38,4 +37,5 @@ def read_MFT(partitionPath):
     MFT_entry_size = pow(2, abs(int.from_bytes(get_bytes_from_offset(boot_sector, '40', 1), signed=True)))
 
 
-read_partition_boot_sector(path)
+def read_NTFS(partitionPath):
+    read_partition_boot_sector(partitionPath)
