@@ -1,7 +1,5 @@
 import sys
 
-path = "\\\\.\\D:"
-
 # Read sector
 def read_sector(partitionPath, sector_no = 0):
     read = None
