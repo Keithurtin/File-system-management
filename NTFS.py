@@ -18,7 +18,7 @@ def read_partition_boot_sector(partitionPath):
     print("-------------------Boot Sector-----------------------")
     print("Type of File System: ", get_bytes_from_offset(boot_sector, '3', 8).decode())
     print("Size of a sector: ", int.from_bytes(get_bytes_from_offset(boot_sector, 'B', 2), sys.byteorder), " (Byte)")
-    print("Size of a cluster: ", int.from_bytes(get_bytes_from_offset(boot_sector, 'D', 1)), " (Sector)")
+    print("Size of a cluster: ", int.from_bytes(get_bytes_from_offset(boot_sector, 'D', 1))" (Sector)")
     print("Number of sectors on logical drive: ", int.from_bytes(get_bytes_from_offset(boot_sector, '28', 8), sys.byteorder), " (Sector)")
     print("Disk type ID: ", int.from_bytes(get_bytes_from_offset(boot_sector, '15', 1)))
     print("Starting cluster of MFT: ", int.from_bytes(get_bytes_from_offset(boot_sector, '30', 8), sys.byteorder))
