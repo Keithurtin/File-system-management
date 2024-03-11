@@ -1,5 +1,23 @@
+import sys
 import os
+import struct
 from tabulate import tabulate
+
+def read_boot_sector_value(boot_sector, hex_offset, num_bytes):
+    dec_offset = int(int(hex_offset, 16))
+    # Trích xuất giá trị từ boot sector dựa trên offset và số bytes
+    value = struct.unpack_from(f"<{num_bytes}s", boot_sector, dec_offset)[0]
+    return value
+
+def bytes_to_integer(byte_string):
+    # Sử dụng struct.unpack để giải mã giá trị từ chuỗi bytes
+    format_string = f"<{len(byte_string)}B"  # Xác định định dạng cho số lượng byte cụ thể
+    integer_value = struct.unpack(format_string, byte_string)
+    
+    # Chuyển đổi tuple thành một số nguyên
+    result = sum(b << (8 * i) for i, b in enumerate(integer_value))
+    
+    return result
 
 def pad_hex(s):
     return s[2:].zfill(2)
@@ -36,7 +54,7 @@ def read_name(sector, start, end):
 
 def read_subentry(sector, index):
     name = ""
-    name += read_name(sector, index +1, index + 11) + read_name(sector, index + 14, index + 26) + read_name(sector, index + 28, index + 32)
+    name += read_name(sector, index + 1, index + 11) + read_name(sector, index + 14, index + 26) + read_name(sector, index + 28, index + 32)
     return name
 
 def read_status(sector, index):
@@ -67,7 +85,7 @@ def read_sec_addr(drive, Sb, Sf, Sc, clus_start):
     return sec_list
 
 def print_txt(drive, Sb, Sf, Sc, first_clus, size):
-    os.system('cls')
+    # os.system('cls')
     content = ""
     word_count = 0
     clus = first_clus
@@ -85,7 +103,7 @@ def print_txt(drive, Sb, Sf, Sc, first_clus, size):
         FAT = get_FAT_sector(drive, Sb, (clus//128))
         clus = hexstr_to_dec(FAT[clus % 128])
     print(content)    
-    enter = input("\nPress Enter to go back")
+    # enter = input("\nPress Enter to go back")
 
 def print_info(filename_list, status_list, size_list, clus_start_list):
     id_list = []
@@ -102,9 +120,9 @@ def print_info(filename_list, status_list, size_list, clus_start_list):
     
 
 
-def execute(drive, Sb, Sf, Sc, first_clus):
+def execute(drive, Sb, Sf, Sc, first_clus, Nf, isPrint = True, path = ""):
     while (True):
-        os.system('cls')
+        # os.system('cls')
         clus = first_clus
         filename_list = []
         filename = ""
@@ -115,13 +133,15 @@ def execute(drive, Sb, Sf, Sc, first_clus):
 
         # Read RDET and SDET
         while(clus != to_dec("0FFFFFFF")):
-            first_sec = Sb + Sf * 2 + Sc * (clus - 2)
+            first_sec = Sb + Sf * Nf + Sc * (clus - 2)
             for i in range(Sc):
                 sector = read_sector(drive, first_sec + i)
                 for j in range(0, 512, 32):
-                    if (sector[j] == 0 or sector[j] == to_dec("E5")):
+                    if j >= len(sector):
+                        break
+                    if (sector[j] == 0 or sector[j] == to_dec("0xE5")):
                         continue
-                    if (sector[j + to_dec("B")] == to_dec("0F")):
+                    if (sector[j + to_dec("0x0B")] == to_dec("0x0F")):
                         filename = read_subentry(sector, j) + filename
                     else:
                         status = read_status(sector, j + to_dec("B"))
@@ -144,46 +164,93 @@ def execute(drive, Sb, Sf, Sc, first_clus):
             clus = hexstr_to_dec(FAT[clus % 128])
 
         # Print RDET and SDET
-        print_info(filename_list, status_list, size_list, clus_start_list)
-
+        if (isPrint == True):
+            print_info(filename_list, status_list, size_list, clus_start_list)
+        # path = path + ":\\" 
         # Read SDET
-        while (True):
-            id = int(input("Enter id of file/directory you want to open. Enter 0 to go back: "))
-            if (id == 0): 
+        while True:
+            user_input = input(f"{path}> ")
+            tokens = user_input.split()
+
+            while user_input == '':
+                user_input = input(f"{path}> ")
+
+            if user_input == "exit":
+                sys.exit()
+            elif user_input == "back" or user_input == "cd ..":
                 return
-            if (id >= len(filename_list)):
-                print("There is no file/directory with id", id)
-            elif (status_list[id] == "Directory"):    
-                execute(drive, Sb, Sf, Sc, clus_start_list[id])
-                break
-            elif (status_list[id] == "Archive" and expand_list[id] == "TXT"):
-                print_txt(drive, Sb, Sf, Sc, clus_start_list[id], size_list[id])
-                break
+            elif user_input == "ls":
+                print_info(filename_list, status_list, size_list, clus_start_list)
+            elif user_input == "clear":
+                os.system('cls' if os.name == 'nt' else 'clear')
+            elif tokens[0] == "cd" and len(tokens) > 1:
+                folder_name = " ".join(tokens[1:])
+                if (folder_name in filename_list and status_list[filename_list.index(folder_name)] == "Directory"):
+                    execute(drive, Sb, Sf, Sc, clus_start_list[filename_list.index(folder_name)], Nf, False, path + "\\" + folder_name)
+                else: 
+                    print("Invalid directory:", folder_name)
+            elif tokens[0] == "type" and len(tokens) > 1:
+                __file_name = " ".join(tokens[1:])
+                if __file_name in filename_list and status_list[filename_list.index(__file_name)] == "Archive" and expand_list[filename_list.index(__file_name)] == "TXT":
+                    print_txt(drive, Sb, Sf, Sc, clus_start_list[filename_list.index(__file_name)], size_list[filename_list.index(__file_name)])
+                elif __file_name in filename_list and status_list[filename_list.index(__file_name)] == "Archive":
+                    print("You only can open .txt file")
+                else: 
+                    print("Invalid file name:", __file_name)
             else:
-                print("You cannot open this file/directory")
+                print("Available commands:")
+                print("  cd <directory>    : Change current directory to the specified one.")
+                print("  type <file_name>  : Display the contents of the specified file.")
+                print("  clear             : Clear the screen.")
+                print("  help              : Display information about available commands.")
+                print("  exit              : Exit the program.")
+                print("  back              : Move back to the previous directory.")
+                print("  cd ..             : Move back to the previous directory.")
+                print("  ls                : List the contents of the current directory.")
+
 
 
 def read_FAT32(drive):
     
     # Read Boot sector
     boot_sector = read_sector(drive)
-    bytes_per_sec = 512
-    Sc = boot_sector[to_dec("D")]
-    Sb = hexstr_to_dec(dec_to_hexstr(boot_sector[to_dec("F")]) + dec_to_hexstr(boot_sector[to_dec("E")]))
-    Sv = hexstr_to_dec(dec_to_hexstr(boot_sector[to_dec("23")]) + dec_to_hexstr(boot_sector[to_dec("22")]) + dec_to_hexstr(boot_sector[to_dec("21")]) + dec_to_hexstr(boot_sector[to_dec("20")]))
-    Sf = hexstr_to_dec(dec_to_hexstr(boot_sector[to_dec("27")]) + dec_to_hexstr(boot_sector[to_dec("26")]) + dec_to_hexstr(boot_sector[to_dec("25")]) + dec_to_hexstr(boot_sector[to_dec("24")]))
+
+    # read_boot_sector_value(boot_sector, "52", 8)
+
+    bytes_per_sec = bytes_to_integer(read_boot_sector_value(boot_sector, "0x0B", 2))
+    sectors_per_cluster = bytes_to_integer(read_boot_sector_value(boot_sector, "0x0D", 1))
+    reserved_sector = bytes_to_integer(read_boot_sector_value(boot_sector, "0x0E", 2))
+    number_of_FATs = bytes_to_integer(read_boot_sector_value(boot_sector, "0x10", 1))
+    entrys_per_rdet = bytes_to_integer(read_boot_sector_value(boot_sector, "0x11", 2))
+    sectors_per_volume = bytes_to_integer(read_boot_sector_value(boot_sector, "0x20", 4))
+    sectors_per_fat = bytes_to_integer(read_boot_sector_value(boot_sector, "0x24", 4))
     first_clus_rdet = hexstr_to_dec(dec_to_hexstr(boot_sector[to_dec("2F")]) + dec_to_hexstr(boot_sector[to_dec("2E")]) + dec_to_hexstr(boot_sector[to_dec("2D")]) + dec_to_hexstr(boot_sector[to_dec("2C")]))
 
     # Print Boot sector
-    print("Bytes per sector: ",  bytes_per_sec)
-    print("Sc = ", Sc)
-    print("Sb = ", Sb)
-    print("Sv = ", Sv)
-    print("Sf = ", Sf)
-    print("First cluster of rdet = ", first_clus_rdet)
+    data = [
+        ("Type of file system detected", read_boot_sector_value(boot_sector, "0x52", 8).decode('ascii')),
+        ("Bytes per sector", "{} bytes".format(bytes_per_sec)),
+        ("Sectors per cluster (Sc)", "{} sectors".format(sectors_per_cluster)),
+        ("Reserved sector (Sb)", "{} sectors".format(reserved_sector)),
+        ("Number of FATs (Nf)", "{} fats".format(number_of_FATs)),
+        ("Size of volume (Sv)", "{} sectors".format(sectors_per_volume)),
+        ("Size of FAT (Sf)", "{} sectors".format(sectors_per_fat)),
+        # ("First sector of FAT1", reserved_sector),
+        # ("First sector of RDET", reserved_sector + (number_of_FATs * sectors_per_fat)),
+        # ("First sector of data area", reserved_sector + (number_of_FATs * sectors_per_fat) + (entrys_per_rdet * 32 / 512)),
+        ("First cluster of rdet", first_clus_rdet)
+    ]
 
-    enter = input("Press Enter to open root directory tree")
-    execute(drive, Sb, Sf, Sc, first_clus_rdet)
+    # In bảng
+    table = tabulate(data, headers=["Property", "Value"], tablefmt="pretty")
+    print(table)
+    print("\n")
+    print("type help for assistance")
+    print("\n")
+    execute(drive, reserved_sector, sectors_per_fat, sectors_per_cluster, first_clus_rdet, number_of_FATs, False, drive[-2] + ":")
+
+        
+    
 
 def read_sector(disk, sector_no=0):
     """Read a single sector of the specified disk.
