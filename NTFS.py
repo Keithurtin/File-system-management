@@ -1,4 +1,6 @@
 import sys
+import FAT32
+from tabulate import tabulate
 
 # Read sector
 def read_sector(partitionPath, sector_no = 0):
@@ -8,22 +10,31 @@ def read_sector(partitionPath, sector_no = 0):
         read = partition.read(512)
     return read
 
+
 #Use offset in hexadecimal to read
 def get_bytes_from_offset(sector, hex_offset_str : str, size):
     return sector[int(int(hex_offset_str, 16)) : int(int(hex_offset_str, 16)) + size]
 
 #Read and print information of boot sector
 def read_partition_boot_sector(partitionPath):
-    boot_sector = read_sector(partitionPath, 0)
-    print("-------------------Boot Sector-----------------------")
-    print("Type of File System: ", get_bytes_from_offset(boot_sector, '3', 8).decode())
-    print("Size of a sector: ", int.from_bytes(get_bytes_from_offset(boot_sector, 'B', 2), sys.byteorder), " (Byte)")
-    print("Size of a cluster: ", int.from_bytes(get_bytes_from_offset(boot_sector, 'D', 1))" (Sector)")
-    print("Number of sectors on logical drive: ", int.from_bytes(get_bytes_from_offset(boot_sector, '28', 8), sys.byteorder), " (Sector)")
-    print("Disk type ID: ", int.from_bytes(get_bytes_from_offset(boot_sector, '15', 1)))
-    print("Starting cluster of MFT: ", int.from_bytes(get_bytes_from_offset(boot_sector, '30', 8), sys.byteorder))
-    print("Size of a MFT entry: ", pow(2, abs(int.from_bytes(get_bytes_from_offset(boot_sector, '40', 1), signed=True)))," (Bytes)")
-    print("----------------------------------------------------- \n")
+    boot_sector = FAT32.read_sector(partitionPath)
+
+    data = [
+        ["Type of File System", get_bytes_from_offset(boot_sector, '3', 8).decode()],
+        ["Size of a sector", "{:d} bytes".format(FAT32.bytes_to_integer(FAT32.read_boot_sector_value(boot_sector, '0x0B', 2)))],
+        ["Size of a cluster", "{:d} bytes".format(FAT32.bytes_to_integer(FAT32.read_boot_sector_value(boot_sector, '0x0D', 1)))],
+        ["Starting sector of the logic drive", "{:d} bytes".format(FAT32.bytes_to_integer(FAT32.read_boot_sector_value(boot_sector, '0x1C', 4)))],
+        ["Sectors per logic drive", "{:d} bytes".format(FAT32.bytes_to_integer(FAT32.read_boot_sector_value(boot_sector, '0x28', 8)))],
+        ["Reserved sector", "{:d} bytes".format(FAT32.bytes_to_integer(FAT32.read_boot_sector_value(boot_sector, '0x0E', 2)))],
+        ["Starting cluster of MFT", FAT32.bytes_to_integer(FAT32.read_boot_sector_value(boot_sector, '0x30', 8))],
+        ["Starting cluster of MFTMirror", FAT32.bytes_to_integer(FAT32.read_boot_sector_value(boot_sector, '0x38', 8))],
+        ["Size of a MFT entry", "{:d} bytes".format(FAT32.bytes_to_integer(FAT32.read_boot_sector_value(boot_sector, '0x40', 1)))],
+    ]
+
+    table = tabulate(data, headers=["Property", "Value"], tablefmt="pretty")
+    print(table)
+
+
 
 #Read MFT to find $INDEX_ROOT and $INDEX_ALLOCATION metadata file
 def read_MFT(partitionPath):
