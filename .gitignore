@@ -1,0 +1,31 @@
+# Virtual Environment
+venv/
+env/
+*.pyc
+*.pyo
+__pycache__/
+
+# Logs and databases
+*.log
+*.sqlite3
+
+# Output directories
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+
+# Compiled Python files
+*.pyc
+*.pyo
+*.pyd
+
+# Local development settings
+.env
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
