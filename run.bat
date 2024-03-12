@@ -1,4 +1,3 @@
-@REM @echo off
 title windows file system manager
 color 0E
 cd /d %~dp0
