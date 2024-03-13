@@ -18,7 +18,7 @@ def main():
     drive = drive + letter + ":"
     if (b'FAT32' in FAT32.read_sector(drive)):
         FAT32.read_FAT32(drive)
-    elif (b'NTFS' in NTFS.read_sector(drive)):
+    elif (b'NTFS' in FAT32.read_sector(drive)):
         NTFS.read_NTFS(drive)
     else:
         print("File system must be FAT32 or NTFS")

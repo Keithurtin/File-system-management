@@ -5,16 +5,14 @@ from tabulate import tabulate
 
 def read_boot_sector_value(boot_sector, hex_offset, num_bytes):
     dec_offset = int(int(hex_offset, 16))
-    # Trích xuất giá trị từ boot sector dựa trên offset và số bytes
+    
     value = struct.unpack_from(f"<{num_bytes}s", boot_sector, dec_offset)[0]
     return value
 
 def bytes_to_integer(byte_string):
-    # Sử dụng struct.unpack để giải mã giá trị từ chuỗi bytes
-    format_string = f"<{len(byte_string)}B"  # Xác định định dạng cho số lượng byte cụ thể
+    format_string = f"<{len(byte_string)}B"  
     integer_value = struct.unpack(format_string, byte_string)
     
-    # Chuyển đổi tuple thành một số nguyên
     result = sum(b << (8 * i) for i, b in enumerate(integer_value))
     
     return result
@@ -54,7 +52,10 @@ def read_name(sector, start, end):
 
 def read_subentry(sector, index):
     name = ""
-    name += read_name(sector, index + 1, index + 11) + read_name(sector, index + 14, index + 26) + read_name(sector, index + 28, index + 32)
+    name1 = read_name(sector, index + 1, index + 11)
+    name2 = read_name(sector, index + 14, index + 26)
+    name3 = read_name(sector, index + 28, index + 32)
+    name += name1 + name2 + name3
     return name
 
 def read_status(sector, index):
@@ -85,7 +86,6 @@ def read_sec_addr(drive, Sb, Sf, Sc, clus_start):
     return sec_list
 
 def print_txt(drive, Sb, Sf, Sc, first_clus, size):
-    # os.system('cls')
     content = ""
     word_count = 0
     clus = first_clus
@@ -102,8 +102,7 @@ def print_txt(drive, Sb, Sf, Sc, first_clus, size):
                 word_count += 1
         FAT = get_FAT_sector(drive, Sb, (clus//128))
         clus = hexstr_to_dec(FAT[clus % 128])
-    print(content)    
-    # enter = input("\nPress Enter to go back")
+    print(content)
 
 def print_info(filename_list, status_list, size_list, clus_start_list):
     id_list = []
@@ -116,13 +115,13 @@ def print_info(filename_list, status_list, size_list, clus_start_list):
         "Size": size_list,
         "Starting cluster": clus_start_list
     }
-    print(tabulate(tree, headers = ["Id", "Name", "Status", "Size", "Starting cluster"]))
+    print(tabulate(tree, headers = ["Id", "Name", "Status", 
+                                    "Size", "Starting cluster"]))
     
 
 
 def execute(drive, Sb, Sf, Sc, first_clus, Nf, isPrint = True, path = ""):
     while (True):
-        # os.system('cls')
         clus = first_clus
         filename_list = []
         filename = ""
@@ -166,8 +165,7 @@ def execute(drive, Sb, Sf, Sc, first_clus, Nf, isPrint = True, path = ""):
         # Print RDET and SDET
         if (isPrint == True):
             print_info(filename_list, status_list, size_list, clus_start_list)
-        # path = path + ":\\" 
-        # Read SDET
+        
         while True:
             user_input = input(f"{path}> ")
             tokens = user_input.split()
@@ -221,11 +219,10 @@ def read_FAT32(drive):
     sectors_per_cluster = bytes_to_integer(read_boot_sector_value(boot_sector, "0x0D", 1))
     reserved_sector = bytes_to_integer(read_boot_sector_value(boot_sector, "0x0E", 2))
     number_of_FATs = bytes_to_integer(read_boot_sector_value(boot_sector, "0x10", 1))
-    entrys_per_rdet = bytes_to_integer(read_boot_sector_value(boot_sector, "0x11", 2))
     sectors_per_volume = bytes_to_integer(read_boot_sector_value(boot_sector, "0x20", 4))
     sectors_per_fat = bytes_to_integer(read_boot_sector_value(boot_sector, "0x24", 4))
-    first_clus_rdet = hexstr_to_dec(dec_to_hexstr(boot_sector[to_dec("2F")]) + dec_to_hexstr(boot_sector[to_dec("2E")]) + dec_to_hexstr(boot_sector[to_dec("2D")]) + dec_to_hexstr(boot_sector[to_dec("2C")]))
-
+    first_clus_rdet = bytes_to_integer(read_boot_sector_value(boot_sector, "0x2C", 4))
+    
     # Print Boot sector
     data = [
         ("Type of file system detected", read_boot_sector_value(boot_sector, "0x52", 8).decode('ascii')),
@@ -235,9 +232,6 @@ def read_FAT32(drive):
         ("Number of FATs (Nf)", "{} fats".format(number_of_FATs)),
         ("Size of volume (Sv)", "{} sectors".format(sectors_per_volume)),
         ("Size of FAT (Sf)", "{} sectors".format(sectors_per_fat)),
-        # ("First sector of FAT1", reserved_sector),
-        # ("First sector of RDET", reserved_sector + (number_of_FATs * sectors_per_fat)),
-        # ("First sector of data area", reserved_sector + (number_of_FATs * sectors_per_fat) + (entrys_per_rdet * 32 / 512)),
         ("First cluster of rdet", first_clus_rdet)
     ]
 
@@ -247,21 +241,21 @@ def read_FAT32(drive):
     print("\n")
     print("type help for assistance")
     print("\n")
-    execute(drive, reserved_sector, sectors_per_fat, sectors_per_cluster, first_clus_rdet, number_of_FATs, False, drive[-2] + ":")
+    execute(drive, reserved_sector, sectors_per_fat, sectors_per_cluster, 
+            first_clus_rdet, number_of_FATs, False, drive[-2] + ":")
 
         
     
 
-def read_sector(disk, sector_no=0):
-    """Read a single sector of the specified disk.
 
+    """Read a single sector of the specified disk.
     Keyword arguments:
     disk -- the physical ID of the disk to read.
     sector_no -- the sector number to read (default: 0).
-    """
     # Static typed variable
+    """
+def read_sector(disk, sector_no=0):
     read = None
-    # File operations with `with` syntax. To reduce file handeling efforts.
     with open(disk, 'rb') as fp:
         fp.seek(sector_no * 512)
         read = fp.read(512)
